@@ -1,5 +1,6 @@
 from describe import read_csv_file, parse_csv_data
-import sys
+import matplotlib.pyplot as plt
+
 
 def extract_course_by_house(rows, headers, course_name):
     house_index = headers.index("Hogwarts House")
@@ -30,6 +31,23 @@ def extract_course_by_house(rows, headers, course_name):
     return houses
 
 
+def plot_histogram(houses_data, course_name):
+    plt.figure(figsize=(10, 6))
+
+    for house, grades in houses_data.items():
+        if not grades:
+            continue
+        plt.hist(grades, bins=20, alpha=0.6, label=house)
+
+    plt.title(f"Score distribution for {course_name}")
+    plt.xlabel("Score")
+    plt.ylabel("Number of Students")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+
 def main():
     # Use default dataset path
     file_path = "datasets/dataset_train.csv"
@@ -45,16 +63,9 @@ def main():
     print("Course data by house:")
     print("-" * 50)
     
-    for course_name in courses:
-        try:
-            houses_data = extract_course_by_house(rows, headers, course_name)
-            print(f"\n{course_name}:")
-            for house, grades in houses_data.items():
-                if grades:
-                    print(f"  {house}: {len(grades)} students, avg={sum(grades)/len(grades):.2f}")
-        except ValueError:
-            print(f"  {course_name}: Not found in dataset")
-            continue
+    course_name = "Astronomy"
+    houses_data = extract_course_by_house(rows, headers, course_name)
+    plot_histogram(houses_data, course_name)
 
 
 if __name__ == "__main__":
