@@ -63,7 +63,7 @@ def main():
     print("Course data by house:")
     print("-" * 50)
     
-    course_name = "Astronomy"
+    course_name = "Astronomy" #Care of Magical Creatures
     houses_data = extract_course_by_house(rows, headers, course_name)
     plot_histogram(houses_data, course_name)
 
