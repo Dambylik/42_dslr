@@ -1,3 +1,4 @@
+import math
 import sys
 import pandas as pd
 import seaborn as sns
@@ -20,7 +21,6 @@ def plot_pair(df):
         plot_kws={"alpha": 0.6, "s": 15}
     )
     plt.show()
-
 
 def main():
     if len(sys.argv) != 2:
