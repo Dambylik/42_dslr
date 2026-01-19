@@ -1,6 +1,7 @@
 import sys
 import math
 
+
 def sigmoid(z):
     """sigmoid function : σ(z) = 1 / (1 + e⁻ᶻ)"""
     if z >= 0:
@@ -146,6 +147,24 @@ def evaluate_per_house(X, true_houses, models, house_names):
         accuracy = correct / total if total > 0 else 0
         print(f"{house} accuracy: {accuracy:.2f}")
 
+
+def normalization(X, means, stds):
+    """ Normalize the dataset using z-score normalization x_scaled = (x - μ) / σ"""
+    """mu (μ) = = mean of the feature"""
+    """sigma (σ) = standard deviation of the feature
+    X_scaled = [
+    [(x₁₁ - μ₁)/σ₁, (x₁₂ - μ₂)/σ₂, ...],
+    [(x₂₁ - μ₁)/σ₁, (x₂₂ - μ₂)/σ₂, ...],
+    ]
+    """
+    X_scaled = []
+    for row in X:
+        scaled_row = []
+        for j in range(len(row)):
+            scaled_value = (row[j] - means[j]) / stds[j]
+            scaled_row.append(scaled_value)
+        X_scaled.append(scaled_row)
+    return X_scaled
         
 
 def main():

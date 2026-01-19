@@ -83,18 +83,12 @@ def calculate_mean(values):
 def calculate_min(values):
     """Calculate minimum value."""
     min_value = values[0]
-    for v in values:
-        if v < min_value:
-            min_value = v
     return min_value
 
 
 def calculate_max(values):
     """Calculate maximum value."""
-    max_value = values[0]
-    for v in values:
-        if v > max_value:
-            max_value = v
+    max_value = values[-1]
     return max_value
 
 
@@ -108,7 +102,7 @@ def calculate_std(values, mean):
     return math.sqrt(variance)
 
 
-def compute_percentile(sorted_values, p):
+def calculate_percentile(sorted_values, p):
     """Calculate percentile from sorted values."""
     n = len(sorted_values)
     if n == 0:
@@ -133,16 +127,20 @@ def calculate_statistics(numerical_columns):
     stats = {}
     
     for col_name, values in numerical_columns.items():
-        count = calculate_count(values)
-        mean = calculate_mean(values)
-        std = calculate_std(values, mean)
-        min_value = calculate_min(values)
-        max_value = calculate_max(values)
-        
+        if not values:
+            continue # skip empty columns
+
         sorted_values = sorted(values)
-        q25 = compute_percentile(sorted_values, 0.25)
-        q50 = compute_percentile(sorted_values, 0.50)
-        q75 = compute_percentile(sorted_values, 0.75)
+        count = calculate_count(sorted(sorted_values))
+        mean = calculate_mean(sorted_values)
+        std = calculate_std(sorted_values, mean)
+        if std == 0.0:
+            std == 1.0
+        min_value = calculate_min(sorted_values)
+        max_value = calculate_max(sorted_values)    
+        q25 = calculate_percentile(sorted_values, 0.25)
+        q50 = calculate_percentile(sorted_values, 0.50)
+        q75 = calculate_percentile(sorted_values, 0.75)
         
         stats[col_name] = {
             "count": count,
@@ -154,7 +152,6 @@ def calculate_statistics(numerical_columns):
             "75%": q75,
             "max": max_value
         }
-    
     return stats
 
 
