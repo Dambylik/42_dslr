@@ -1,5 +1,7 @@
 import sys
 import math
+from describe import read_csv_file, parse_csv_data
+
 
 
 def sigmoid(z):
@@ -85,6 +87,22 @@ def compute_accuracy(X, y, w, b):
     return correct_predictions / m
 
 
+def train_logistic_regression(X, y, learning_rate, epochs):
+    """
+    Train a binary logistic regression model using batch gradient descent.
+    Returns trained weights and bias.
+    """
+    m = len(X)
+    n_features = len(X[0])
+    w = [0.0] * n_features
+    b = 0.0
+    # Training loop
+    for _ in range(epochs):
+        w, b = gradient_descent_step(X, y, w, b, learning_rate)
+    
+    return w, b
+
+
 def train_one_vs_rest(X, houses, house_names, learning_rate = 0.1, epochs = 1000):
     """
     Train one-vs-rest logistic regression for a specific house.
@@ -127,6 +145,7 @@ def evaluate_one_vs_rest(X, true_house, models):
     accuracy = correct_predictions / total
     return accuracy
 
+
 def evaluate_per_house(X, true_houses, models, house_names):
     """Evaluate accuracy per house in OVR model"""
     stats = {house: {
@@ -168,13 +187,71 @@ def normalization(X, means, stds):
         
 
 def main():
-    """Main programm"""
-        
-    print("Logistic Regression project")
-    print("---------------------------")
-    print(sigmoid(-5))
-    print(log_loss(1, 0.9))
-    
+    # ---------- 1. Load dataset ----------
+    if len(sys.argv) != 2:
+        print("Usage: python logreg_train.py <dataset_path>")
+        sys.exit(1)
+    file_path = sys.argv[1]
+    lines = read_csv_file(file_path)
+    headers, rows = parse_csv_data(lines)
+
+    # ---------- 2. Define features ----------
+    label_col = "Hogwarts House"
+    skip_cols = ["Index", "First Name", "Last Name", "Birthday", label_col, "Best Hand"]
+    feature_names = [h for h in headers if h not in skip_cols]
+    house_names = ["Gryffindor", "Ravenclaw", "Hufflepuff", "Slytherin"]
+
+    # ---------- 3. Extract features and labels ----------
+    X = []
+    y = []
+    for row in rows:
+        try:
+            features = [float(row[headers.index(f)]) if row[headers.index(f)] != '' else 0.0 for f in feature_names]
+            label = row[headers.index(label_col)]
+            if label not in house_names:
+                continue
+            X.append(features)
+            y.append(label)
+        except ValueError:
+            continue
+
+    # ---------- 4. Train / test split ----------
+    # Simple split: last 20% for test
+    split_idx = int(0.8 * len(X))
+    X_train, X_test = X[:split_idx], X[split_idx:]
+    y_train, y_test = y[:split_idx], y[split_idx:]
+
+    # ---------- 5. Compute statistics on TRAIN ----------
+    from describe import calculate_statistics
+    numerical_columns = {feature_names[i]: [row[i] for row in X_train] for i in range(len(feature_names))}
+    stats = calculate_statistics(numerical_columns)
+    means = [stats[f]["mean"] for f in feature_names]
+    stds = [stats[f]["std"] if stats[f]["std"] != 0 else 1.0 for f in feature_names]
+
+    # ---------- 6. Normalize ----------
+    X_train_scaled = normalization(X_train, means, stds)
+    X_test_scaled = normalization(X_test, means, stds)
+
+    # ---------- 7. Train model ----------
+    models = train_one_vs_rest(X_train_scaled, y_train, house_names, learning_rate=0.1, epochs=1000)
+
+    # ---------- 8. Evaluate ----------
+    print("Train accuracy:", evaluate_one_vs_rest(X_train_scaled, y_train, models))
+    print("Test accuracy:", evaluate_one_vs_rest(X_test_scaled, y_test, models))
+    evaluate_per_house(X_test_scaled, y_test, models, house_names)
+
+    # ---------- 9. Save model ----------
+    import pickle
+    with open("logreg_model.pkl", "wb") as f:
+        pickle.dump({
+            "models": models,
+            "feature_names": feature_names,
+            "means": means,
+            "stds": stds
+        }, f)
+    print("Model saved to logreg_model.pkl")
+
+
 
 if __name__ == "__main__":
     main()
