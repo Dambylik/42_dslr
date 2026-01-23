@@ -1,7 +1,12 @@
+"""
+Logistic Regression Training with Mini-Batch Gradient Descent (Bonus)
+Usage: python logreg_train_minibatch.py <dataset_train.csv>
+"""
 import sys
 import math
 import json
-from describe import calculate_statistics
+import random
+from describe import calculate_statistics, extract_numerical_columns
 from utils import read_csv_file, parse_csv_data
 
 
@@ -17,107 +22,108 @@ def sigmoid(z):
         return exp_z / (1 + exp_z)
 
 
-def log_loss(y, y_hat, eps=1e-15):
+def mini_batch_gradient_step(X_batch, y_batch, w, b, learning_rate):
     """
-    y_hat is computed with
-    1. Linear score: z = w · x + b
-    2. Sigmoid: y_hat = sigmoid(z)
-    """
-    # clip predictions to avoid log(0)
-    y_hat = max(eps, min(1 - eps, y_hat))
-    return -(y * math.log(y_hat) + (1 - y) * math.log(1 - y_hat))
+    Perform one mini-batch gradient descent step.
+    Computes gradients over a small batch of samples, then updates weights.
 
-
-def gradient_descent_step(X, y, w, b, learning_rate):
-    """
-    Perform one batch gradient descent step.
-    X: list of feature vectors, 2 students and 2 features
-    X = [
-        [2.0, 1.0],   # student A
-        [1.0, 3.0]    # student B
-        ]
-    y: list of true labels (0 or 1), if we're training "House = Gryffindor".
-        y = [1, # student A is Gryffindor
-             0]  # student B is not
-
-    w: list of weights start neutral
+    X_batch: list of feature vectors (mini-batch)
+    y_batch: list of true labels (0 or 1)
+    w: list of weights
     b: bias (float)
-        w = [0.0, 0.0]
-        b = 0.0
-        learning_rate = 0.1
-    d: derivative
+    learning_rate: step size
     """
-    m = len(X)          # 2 students
-    n = len(w)          # 2 features
+    m = len(X_batch)    # mini-batch size
+    n = len(w)          # number of features
     dw = [0.0] * n      # gradient of the loss with respect to the weights
     db = 0.0            # gradient of the loss with respect to the bias
 
+    # Accumulate gradients over mini-batch
     for i in range(m):
         # linear score
-        z = sum(w[j] * X[i][j] for j in range(n)) + b
+        z = sum(w[j] * X_batch[i][j] for j in range(n)) + b
         # prediction
         y_hat = sigmoid(z)
         # error
-        error = y_hat - y[i]
+        error = y_hat - y_batch[i]
         # accumulate gradients
         for j in range(n):
-            dw[j] += error * X[i][j]
+            dw[j] += error * X_batch[i][j]
         db += error
-    # average gradients
+
+    # Average gradients over mini-batch
     dw = [g / m for g in dw]
     db /= m
-    # update parameters
+
+    # Update parameters
     for j in range(n):
         w[j] -= learning_rate * dw[j]
     b -= learning_rate * db
     return w, b
 
+
+def shuffle_data(X, y):
+    """Shuffle X and y together using Fisher-Yates algorithm."""
+    n = len(X)
+    X_shuffled = X[:]
+    y_shuffled = y[:]
+    for i in range(n - 1, 0, -1):
+        j = random.randint(0, i)
+        X_shuffled[i], X_shuffled[j] = X_shuffled[j], X_shuffled[i]
+        y_shuffled[i], y_shuffled[j] = y_shuffled[j], y_shuffled[i]
+    return X_shuffled, y_shuffled
+
+
 # =====================
 # Training
 # =====================
-
-def train_logistic_regression(X, y, learning_rate, epochs):
+def train_mini_batch_gd(X, y, learning_rate, epochs, batch_size=32):
     """
-    Train a binary logistic regression model using batch gradient descent.
+    Train a binary logistic regression model using mini-batch gradient descent.
+    Updates weights after each mini-batch of samples.
     Returns trained weights and bias.
     """
     n_features = len(X[0])
+    n_samples = len(X)
     w = [0.0] * n_features
     b = 0.0
+
     # Training loop
     for _ in range(epochs):
-        w, b = gradient_descent_step(X, y, w, b, learning_rate)
+        # Shuffle data each epoch
+        X_shuffled, y_shuffled = shuffle_data(X, y)
+
+        # Process mini-batches
+        for start in range(0, n_samples, batch_size):
+            end = min(start + batch_size, n_samples)
+            X_batch = X_shuffled[start:end]
+            y_batch = y_shuffled[start:end]
+            w, b = mini_batch_gradient_step(X_batch, y_batch, w, b, learning_rate)
+
     return w, b
 
 
-def train_one_vs_rest(X, houses, house_names, learning_rate = 0.1, epochs = 1000):
+def train_one_vs_rest(X, houses, house_names, learning_rate=0.05, epochs=200, batch_size=32):
     """
-    Train one-vs-rest logistic regression for a specific house.
+    Train one-vs-rest logistic regression using Mini-Batch GD.
     houses: list of house labels for each student
-    house_name: the house we are training for (e.g., "Gryffindor")
+    house_names: list of unique house names
+    batch_size: number of samples per mini-batch
     """
-
     models = {}
     for house in house_names:
-        #Build binary labels
+        # Build binary labels
         y_binary = [1 if h == house else 0 for h in houses]
-        w, b = train_logistic_regression(X, y_binary, learning_rate, epochs)
-        models[house] = (w,b)
+        w, b = train_mini_batch_gd(X, y_binary, learning_rate, epochs, batch_size)
+        models[house] = (w, b)
     return models
+
 
 # =====================
 # Normalization
 # =====================
-
 def normalization(X, means, stds):
-    """ Normalize the dataset using z-score normalization x_scaled = (x - μ) / σ"""
-    """mu (μ) = = mean of the feature"""
-    """sigma (σ) = standard deviation of the feature
-    X_scaled = [
-    [(x₁₁ - μ₁)/σ₁, (x₁₂ - μ₂)/σ₂, ...],
-    [(x₂₁ - μ₁)/σ₁, (x₂₂ - μ₂)/σ₂, ...],
-    ]
-    """
+    """Normalize using z-score: x_scaled = (x - μ) / σ"""
     X_scaled = []
     for row in X:
         scaled_row = []
@@ -131,7 +137,6 @@ def normalization(X, means, stds):
 # =====================
 # Persistence
 # =====================
-
 def save_model(path, models, means, stds, feature_names):
     payload = {
         "models": models,
@@ -148,7 +153,7 @@ def save_model(path, models, means, stds, feature_names):
 # =====================
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python logreg_train.py <dataset_train.csv>")
+        print("Usage: python logreg_train_minibatch.py <dataset_train.csv>")
         sys.exit(1)
 
     dataset_path = sys.argv[1]
@@ -158,21 +163,19 @@ def main():
     headers, rows = parse_csv_data(lines)
 
     label_col = "Hogwarts House"
-    skip_cols = ["Index", "First Name", "Last Name", "Birthday", label_col]
-    feature_names = [h for h in headers if h not in skip_cols]
 
-    # Use describe.py logic to extract only numeric columns
-    from describe import extract_numerical_columns
+    # Extract numeric columns
     numerical_columns = extract_numerical_columns(headers, rows)
     numeric_feature_names = list(numerical_columns.keys())
-    # Build X (list of feature vectors) and y (labels)
+
+    # Build X (feature vectors) and y (labels)
     X = []
     y = []
     for row in rows:
         try:
             features = [float(row[headers.index(f)]) if row[headers.index(f)].strip() != '' else float('nan') for f in numeric_feature_names]
             if any([str(x) == 'nan' for x in features]):
-                continue  # skip rows with missing values in numeric features
+                continue
             label = row[headers.index(label_col)]
         except Exception:
             continue
@@ -187,25 +190,26 @@ def main():
     # Normalize
     X_scaled = normalization(X, means, stds)
 
-    # Train one-vs-rest
+    # Train one-vs-rest using Mini-Batch GD
     house_names = sorted(set(y))
     raw_models = train_one_vs_rest(
         X_scaled,
         y,
         house_names,
-        learning_rate=0.01,
-        epochs=1000
+        learning_rate=0.05,
+        epochs=200,
+        batch_size=32
     )
 
-    # Convert each model to dict with 'weights' and 'bias' keys
+    # Convert to dict format
     models = {}
     for house, params in raw_models.items():
         w, b = params
         models[house] = {"weights": w, "bias": b}
 
-    # Save model with only numeric features
+    # Save model
     save_model("model.json", models, means, stds, numeric_feature_names)
-    print("Training complete. Model saved to model.json")
+    print("Mini-Batch GD Training complete. Model saved to model.json")
 
 
 if __name__ == "__main__":

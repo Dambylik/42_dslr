@@ -1,11 +1,10 @@
 # one dot = one student
-# x = student’s Astronomy score
-# y = student’s Care of Magical Creatures score
-# color = student’s house
+# x = student's Astronomy score
+# y = student's Defense Against the Dark Arts score
+# color = student's house
 
 import matplotlib.pyplot as plt
-from describe import read_csv_file, parse_csv_data
-from histogram import extract_course_by_house, plot_histogram
+from utils import read_csv_file, parse_csv_data
 
 
 def extract_pair_by_house(rows, headers, feature_x, feature_y):
@@ -77,8 +76,8 @@ def main():
     print("Course data by house:")
     print("-" * 50)
         
-    feature_x = "Astronomy" 
-    feature_y = "Herbology" #Defense Against the Dark Arts are the two most similar features
+    feature_x = "Astronomy"
+    feature_y = "Defense Against the Dark Arts"  # Correlation r=-1.0 (most similar)
     
     houses_data = extract_pair_by_house(rows, headers, feature_x, feature_y)
     plot_scatter(houses_data, feature_x, feature_y)

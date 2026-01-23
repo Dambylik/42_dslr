@@ -1,4 +1,4 @@
-from describe import read_csv_file, parse_csv_data
+from utils import read_csv_file, parse_csv_data
 import matplotlib.pyplot as plt
 
 
@@ -63,7 +63,7 @@ def main():
     print("Course data by house:")
     print("-" * 50)
     
-    course_name = "Astronomy" #Care of Magical Creatures
+    course_name = "Care of Magical Creatures"  # Most homogeneous distribution
     houses_data = extract_course_by_house(rows, headers, course_name)
     plot_histogram(houses_data, course_name)
 

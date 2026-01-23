@@ -1,38 +1,6 @@
 import sys
 import math
-
-
-def read_csv_file(file_path):
-    """Read CSV file and return lines."""
-    try:
-        with open(file_path, "r") as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        print(f"Error: The file '{file_path}' was not found.")
-        sys.exit(1)
-    
-    if len(lines) == 0:
-        print("The dataset is empty.")
-        sys.exit(1)
-    
-    return lines
-
-
-def parse_csv_data(lines):
-    """Parse CSV lines into headers and rows."""
-    header_line = lines[0].strip()
-    data_lines = lines[1:]
-    headers = header_line.split(",")
-    
-    rows = []
-    for line in data_lines:
-        line = line.strip()
-        if line == "":
-            continue
-        row = line.split(",")
-        rows.append(row)
-    
-    return headers, rows
+from utils import read_csv_file, parse_csv_data
 
 
 def extract_numerical_columns(headers, rows):
@@ -122,10 +90,62 @@ def calculate_percentile(sorted_values, p):
     return lower_value + fraction * (upper_value - lower_value)
 
 
+# =====================
+# Bonus statistics
+# =====================
+def calculate_variance(values, mean):
+    """Calculate variance (std squared)."""
+    squared_diff_sum = 0.0
+    for v in values:
+        diff = v - mean
+        squared_diff_sum += diff * diff
+    return squared_diff_sum / len(values)
+
+
+def calculate_range(min_val, max_val):
+    """Calculate range (max - min)."""
+    return max_val - min_val
+
+
+def calculate_iqr(q25, q75):
+    """Calculate interquartile range (75% - 25%)."""
+    return q75 - q25
+
+
+def calculate_skewness(values, mean, std):
+    """
+    Calculate skewness (measure of asymmetry).
+    Skewness = E[(X - μ)³] / σ³
+    """
+    if std == 0:
+        return 0.0
+    n = len(values)
+    cubed_diff_sum = 0.0
+    for v in values:
+        diff = (v - mean) / std
+        cubed_diff_sum += diff * diff * diff
+    return cubed_diff_sum / n
+
+
+def calculate_kurtosis(values, mean, std):
+    """
+    Calculate kurtosis (measure of tailedness).
+    Kurtosis = E[(X - μ)⁴] / σ⁴ - 3 (excess kurtosis)
+    """
+    if std == 0:
+        return 0.0
+    n = len(values)
+    fourth_diff_sum = 0.0
+    for v in values:
+        diff = (v - mean) / std
+        fourth_diff_sum += diff * diff * diff * diff
+    return (fourth_diff_sum / n) - 3
+
+
 def calculate_statistics(numerical_columns):
     """Calculate statistics for all numerical columns."""
     stats = {}
-    
+
     for col_name, values in numerical_columns.items():
         if not values:
             continue # skip empty columns
@@ -134,56 +154,101 @@ def calculate_statistics(numerical_columns):
         count = calculate_count(sorted(sorted_values))
         mean = calculate_mean(sorted_values)
         std = calculate_std(sorted_values, mean)
-        if std == 0.0:
-            std == 1.0
+        std_for_calc = std if std != 0.0 else 1.0
         min_value = calculate_min(sorted_values)
-        max_value = calculate_max(sorted_values)    
+        max_value = calculate_max(sorted_values)
         q25 = calculate_percentile(sorted_values, 0.25)
         q50 = calculate_percentile(sorted_values, 0.50)
         q75 = calculate_percentile(sorted_values, 0.75)
-        
+
+        # Bonus statistics
+        variance = calculate_variance(sorted_values, mean)
+        range_val = calculate_range(min_value, max_value)
+        iqr = calculate_iqr(q25, q75)
+        skewness = calculate_skewness(sorted_values, mean, std_for_calc)
+        kurtosis = calculate_kurtosis(sorted_values, mean, std_for_calc)
+
+        if std == 0.0:
+            std = 1.0
+
         stats[col_name] = {
             "count": count,
             "mean": mean,
             "std": std,
+            "var": variance,
             "min": min_value,
             "25%": q25,
             "50%": q50,
             "75%": q75,
-            "max": max_value
+            "max": max_value,
+            "range": range_val,
+            "iqr": iqr,
+            "skew": skewness,
+            "kurt": kurtosis
         }
     return stats
 
 
-def print_statistics(stats):
+def print_statistics(stats, output_file=None):
     """Print statistics for all columns in tabular format."""
     if not stats:
         return
 
     columns = list(stats.keys())
 
-    stat_labels = ["Count", "Mean", "Std", "Min", "25%", "50%", "75%", "Max"]
-    stat_keys   = ["count", "mean", "std", "min", "25%", "50%", "75%", "max"]
+    # Original + Bonus fields
+    stat_labels = ["Count", "Mean", "Std", "Var", "Min", "25%", "50%", "75%", "Max", "Range", "IQR", "Skew", "Kurt"]
+    stat_keys   = ["count", "mean", "std", "var", "min", "25%", "50%", "75%", "max", "range", "iqr", "skew", "kurt"]
 
     stat_name_width = 12
-    col_width = 15
+    col_width = 18
+
+    lines = []
 
     # Header row
-    print(" " * stat_name_width, end="")
+    header = " " * stat_name_width
     for col in columns:
-        print(col[:col_width].ljust(col_width), end="")
-    print()
+        header += col[:col_width].ljust(col_width)
+    lines.append(header)
 
     # Data rows
     for label, key in zip(stat_labels, stat_keys):
-        print(f"{label:<{stat_name_width}}", end="")
+        row = f"{label:<{stat_name_width}}"
         for col in columns:
             value = stats[col][key]
             if isinstance(value, int):
-                print(f"{value:<{col_width}}", end="")
+                row += f"{value:<{col_width}}"
             else:
-                print(f"{value:<{col_width}.6f}", end="")
-        print()
+                row += f"{value:<{col_width}.6f}"
+        lines.append(row)
+
+    # Print to terminal
+    for line in lines:
+        print(line)
+
+    # Write to file if specified
+    if output_file:
+        with open(output_file, "w") as f:
+            f.write("DESCRIBE OUTPUT\n")
+            f.write("=" * 80 + "\n\n")
+            for line in lines:
+                f.write(line + "\n")
+            f.write("\n")
+
+            # Also write a vertical format for easier reading
+            f.write("\n" + "=" * 80 + "\n")
+            f.write("VERTICAL FORMAT (easier to read)\n")
+            f.write("=" * 80 + "\n\n")
+            for col in columns:
+                f.write(f"\n{col}\n")
+                f.write("-" * 40 + "\n")
+                for label, key in zip(stat_labels, stat_keys):
+                    value = stats[col][key]
+                    if isinstance(value, int):
+                        f.write(f"  {label:<10} {value}\n")
+                    else:
+                        f.write(f"  {label:<10} {value:.6f}\n")
+        print(f"\nOutput saved to: {output_file}")
 
 
 def main():
@@ -191,13 +256,13 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python describe.py <dataset_name>")
         sys.exit(1)
-    
+
     file_path = sys.argv[1]
     lines = read_csv_file(file_path)
     headers, rows = parse_csv_data(lines)
     numerical_columns = extract_numerical_columns(headers, rows)
     stats = calculate_statistics(numerical_columns)
-    print_statistics(stats)
+    print_statistics(stats, output_file="describe_output.txt")
 
 
 if __name__ == "__main__":
