@@ -205,13 +205,11 @@ def print_statistics(stats, output_file=None):
 
     lines = []
 
-    # Header row
     header = " " * stat_name_width
     for col in columns:
         header += col[:col_width].ljust(col_width)
     lines.append(header)
 
-    # Data rows
     for label, key in zip(stat_labels, stat_keys):
         row = f"{label:<{stat_name_width}}"
         for col in columns:
@@ -222,11 +220,9 @@ def print_statistics(stats, output_file=None):
                 row += f"{value:<{col_width}.6f}"
         lines.append(row)
 
-    # Print to terminal
     for line in lines:
         print(line)
 
-    # Write to file if specified
     if output_file:
         with open(output_file, "w") as f:
             f.write("DESCRIBE OUTPUT\n")
@@ -235,7 +231,7 @@ def print_statistics(stats, output_file=None):
                 f.write(line + "\n")
             f.write("\n")
 
-            # Also write a vertical format for easier reading
+            # Vertical format for easier reading
             f.write("\n" + "=" * 80 + "\n")
             f.write("VERTICAL FORMAT (easier to read)\n")
             f.write("=" * 80 + "\n\n")

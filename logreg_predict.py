@@ -41,7 +41,6 @@ def main():
     model_path = sys.argv[1]
     data_path = sys.argv[2]
 
-    # Load model
     with open(model_path, "r") as f:
         model = json.load(f)
 
@@ -50,7 +49,6 @@ def main():
     stds = model["stds"]
     feature_names = model["features"]
 
-    # Read test data
     lines = read_csv_file(data_path)
     headers, rows = parse_csv_data(lines)
 
@@ -69,7 +67,6 @@ def main():
         house = predict_house(x_norm, models)
         predictions.append(house)
 
-    # Write output with index and header
     with open("houses.csv", "w") as f:
         f.write("Index,Hogwarts House\n")
         for idx, h in enumerate(predictions):

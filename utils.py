@@ -1,5 +1,15 @@
 import pandas as pd
 import sys
+import math
+
+
+def sigmoid(z):
+    """Numerically stable sigmoid function: σ(z) = 1 / (1 + e⁻ᶻ)"""
+    if z >= 0:
+        return 1 / (1 + math.exp(-z))
+    else:
+        exp_z = math.exp(z)
+        return exp_z / (1 + exp_z)
 
 
 def read_csv_file(file_path):

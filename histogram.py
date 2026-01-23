@@ -12,22 +12,18 @@ def extract_course_by_house(rows, headers, course_name):
         "Hufflepuff": [],
         "Slytherin": []
     }
-
     for row in rows:
         if len(row) <= max(house_index, course_index):
             continue
-
         house = row[house_index].strip()
         grade = row[course_index].strip()
 
         if house not in houses or grade == "":
             continue
-
         try:
             houses[house].append(float(grade))
         except ValueError:
             continue
-
     return houses
 
 
