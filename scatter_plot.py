@@ -1,8 +1,4 @@
-# one dot = one student
-# x = student's Astronomy score
-# y = student's Defense Against the Dark Arts score
-# color = student's house
-
+import sys
 import matplotlib.pyplot as plt
 from utils import read_csv_file, parse_csv_data
 
@@ -62,18 +58,14 @@ def plot_scatter(houses_data, feature_x, feature_y):
 
 
 def main():
-    # Use default dataset path
-    file_path = "datasets/dataset_train.csv"
-    
+    if len(sys.argv) != 2:
+        print("Usage: python pair_plot.py dataset.csv")
+        sys.exit(1)
+
+    file_path = sys.argv[1]        
     lines = read_csv_file(file_path)
     headers, rows = parse_csv_data(lines)
     
-    # Get all course names (skip non-course columns)
-    skip_columns = ["Index", "Hogwarts House", "First Name", "Last Name", "Birthday"]
-    courses = [h for h in headers if h not in skip_columns]
-    
-    # Extract data for each course by house
-    print("Course data by house:")
     print("-" * 50)
         
     feature_x = "Astronomy"

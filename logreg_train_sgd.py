@@ -1,25 +1,13 @@
-"""
-Logistic Regression Training with Stochastic Gradient Descent (Bonus)
-Usage: python logreg_train_sgd.py <dataset_train.csv>
-"""
 import sys
-import math
-import json
-import random
 from describe import calculate_statistics, extract_numerical_columns
-from utils import read_csv_file, parse_csv_data
-
-
-# =====================
-# Math utilities
-# =====================
-def sigmoid(z):
-    """sigmoid function : σ(z) = 1 / (1 + e⁻ᶻ)"""
-    if z >= 0:
-        return 1 / (1 + math.exp(-z))
-    else:
-        exp_z = math.exp(z)
-        return exp_z / (1 + exp_z)
+from utils import (
+    read_csv_file,
+    parse_csv_data,
+    sigmoid,
+    normalization,
+    save_model,
+    shuffle_data
+)
 
 
 def sgd_step(x, y_true, w, b, learning_rate):
@@ -43,18 +31,6 @@ def sgd_step(x, y_true, w, b, learning_rate):
         w[j] -= learning_rate * error * x[j]
     b -= learning_rate * error
     return w, b
-
-
-def shuffle_data(X, y):
-    """Shuffle X and y together using Fisher-Yates algorithm."""
-    n = len(X)
-    X_shuffled = X[:]
-    y_shuffled = y[:]
-    for i in range(n - 1, 0, -1):
-        j = random.randint(0, i)
-        X_shuffled[i], X_shuffled[j] = X_shuffled[j], X_shuffled[i]
-        y_shuffled[i], y_shuffled[j] = y_shuffled[j], y_shuffled[i]
-    return X_shuffled, y_shuffled
 
 
 # =====================
@@ -92,35 +68,6 @@ def train_one_vs_rest(X, houses, house_names, learning_rate=0.1, epochs=100):
         w, b = train_sgd(X, y_binary, learning_rate, epochs)
         models[house] = (w, b)
     return models
-
-
-# =====================
-# Normalization
-# =====================
-def normalization(X, means, stds):
-    """Normalize using z-score: x_scaled = (x - μ) / σ"""
-    X_scaled = []
-    for row in X:
-        scaled_row = []
-        for j in range(len(row)):
-            scaled_value = (row[j] - means[j]) / stds[j]
-            scaled_row.append(scaled_value)
-        X_scaled.append(scaled_row)
-    return X_scaled
-
-
-# =====================
-# Persistence
-# =====================
-def save_model(path, models, means, stds, feature_names):
-    payload = {
-        "models": models,
-        "means": means,
-        "stds": stds,
-        "features": feature_names
-    }
-    with open(path, "w") as f:
-        json.dump(payload, f)
 
 
 # =====================

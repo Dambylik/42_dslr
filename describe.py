@@ -233,7 +233,7 @@ def print_statistics(stats, output_file=None):
 
             # Vertical format for easier reading
             f.write("\n" + "=" * 80 + "\n")
-            f.write("VERTICAL FORMAT (easier to read)\n")
+            f.write("VERTICAL FORMAT \n")
             f.write("=" * 80 + "\n\n")
             for col in columns:
                 f.write(f"\n{col}\n")
@@ -248,7 +248,6 @@ def print_statistics(stats, output_file=None):
 
 
 def main():
-    """Main function of describe.py"""
     if len(sys.argv) != 2:
         print("Usage: python describe.py <dataset_name>")
         sys.exit(1)

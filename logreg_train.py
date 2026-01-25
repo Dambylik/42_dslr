@@ -1,31 +1,12 @@
 import sys
-import math
-import json
-from describe import calculate_statistics
-from utils import read_csv_file, parse_csv_data
-
-
-# =====================
-# Math utilities
-# =====================
-def sigmoid(z):
-    """sigmoid function : σ(z) = 1 / (1 + e⁻ᶻ)"""
-    if z >= 0:
-        return 1 / (1 + math.exp(-z))
-    else:
-        exp_z = math.exp(z)
-        return exp_z / (1 + exp_z)
-
-
-def log_loss(y, y_hat, eps=1e-15):
-    """
-    y_hat is computed with
-    1. Linear score: z = w · x + b
-    2. Sigmoid: y_hat = sigmoid(z)
-    """
-    # clip predictions to avoid log(0)
-    y_hat = max(eps, min(1 - eps, y_hat))
-    return -(y * math.log(y_hat) + (1 - y) * math.log(1 - y_hat))
+from describe import calculate_statistics, extract_numerical_columns
+from utils import (
+    read_csv_file,
+    parse_csv_data,
+    sigmoid,
+    normalization,
+    save_model
+)
 
 
 def gradient_descent_step(X, y, w, b, learning_rate):
@@ -96,51 +77,13 @@ def train_one_vs_rest(X, houses, house_names, learning_rate = 0.1, epochs = 1000
     houses: list of house labels for each student
     house_name: the house we are training for (e.g., "Gryffindor")
     """
-
     models = {}
     for house in house_names:
-        #Build binary labels
+        # Build binary labels
         y_binary = [1 if h == house else 0 for h in houses]
         w, b = train_logistic_regression(X, y_binary, learning_rate, epochs)
-        models[house] = (w,b)
+        models[house] = (w, b)
     return models
-
-# =====================
-# Normalization
-# =====================
-
-def normalization(X, means, stds):
-    """ Normalize the dataset using z-score normalization x_scaled = (x - μ) / σ"""
-    """mu (μ) = = mean of the feature"""
-    """sigma (σ) = standard deviation of the feature
-    X_scaled = [
-    [(x₁₁ - μ₁)/σ₁, (x₁₂ - μ₂)/σ₂, ...],
-    [(x₂₁ - μ₁)/σ₁, (x₂₂ - μ₂)/σ₂, ...],
-    ]
-    """
-    X_scaled = []
-    for row in X:
-        scaled_row = []
-        for j in range(len(row)):
-            scaled_value = (row[j] - means[j]) / stds[j]
-            scaled_row.append(scaled_value)
-        X_scaled.append(scaled_row)
-    return X_scaled
-
-
-# =====================
-# Persistence
-# =====================
-
-def save_model(path, models, means, stds, feature_names):
-    payload = {
-        "models": models,
-        "means": means,
-        "stds": stds,
-        "features": feature_names
-    }
-    with open(path, "w") as f:
-        json.dump(payload, f)
 
 
 # =====================
@@ -158,11 +101,8 @@ def main():
     headers, rows = parse_csv_data(lines)
 
     label_col = "Hogwarts House"
-    skip_cols = ["Index", "First Name", "Last Name", "Birthday", label_col]
-    feature_names = [h for h in headers if h not in skip_cols]
 
-    # Use describe.py logic to extract only numeric columns
-    from describe import extract_numerical_columns
+    # Extract numeric columns
     numerical_columns = extract_numerical_columns(headers, rows)
     numeric_feature_names = list(numerical_columns.keys())
     # Build X (list of feature vectors) and y (labels)

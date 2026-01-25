@@ -1,23 +1,14 @@
-"""
-Visualization comparing different gradient descent training techniques.
-Usage: python compare_training.py
-"""
+import sys
 import math
-import random
 import matplotlib.pyplot as plt
 from describe import calculate_statistics, extract_numerical_columns
-from utils import read_csv_file, parse_csv_data
-
-
-# =====================
-# Math utilities
-# =====================
-def sigmoid(z):
-    if z >= 0:
-        return 1 / (1 + math.exp(-z))
-    else:
-        exp_z = math.exp(z)
-        return exp_z / (1 + exp_z)
+from utils import (
+    read_csv_file,
+    parse_csv_data,
+    sigmoid,
+    shuffle_data,
+    normalization
+)
 
 
 def compute_loss(X, y, w, b):
@@ -31,28 +22,6 @@ def compute_loss(X, y, w, b):
         y_hat = max(eps, min(1 - eps, y_hat))
         total_loss += -(y[i] * math.log(y_hat) + (1 - y[i]) * math.log(1 - y_hat))
     return total_loss / m
-
-
-def compute_accuracy(X, y, w, b):
-    """Compute accuracy on dataset."""
-    correct = 0
-    for i in range(len(X)):
-        z = sum(w[j] * X[i][j] for j in range(len(w))) + b
-        pred = 1 if sigmoid(z) >= 0.5 else 0
-        if pred == y[i]:
-            correct += 1
-    return correct / len(X)
-
-
-def shuffle_data(X, y):
-    n = len(X)
-    X_shuffled = X[:]
-    y_shuffled = y[:]
-    for i in range(n - 1, 0, -1):
-        j = random.randint(0, i)
-        X_shuffled[i], X_shuffled[j] = X_shuffled[j], X_shuffled[i]
-        y_shuffled[i], y_shuffled[j] = y_shuffled[j], y_shuffled[i]
-    return X_shuffled, y_shuffled
 
 
 # =====================
@@ -156,14 +125,14 @@ def train_mini_batch_gd(X, y, learning_rate, epochs, batch_size=32):
 # =====================
 # Data loading
 # =====================
-def load_data():
+def load_data(data_file):
     """Load and prepare training data."""
-    lines = read_csv_file("datasets/dataset_train.csv")
+    lines = read_csv_file(data_file)
     headers, rows = parse_csv_data(lines)
 
     label_col = "Hogwarts House"
     numerical_columns = extract_numerical_columns(headers, rows)
-    numeric_feature_names = list(numerical_columns.keys())
+    numeric_feature_names = sorted(numerical_columns.keys())
 
     X = []
     y = []
@@ -178,87 +147,183 @@ def load_data():
         X.append(features)
         y.append(label)
 
-    # Normalize
+    # Normalize using utils function
     stats = calculate_statistics(numerical_columns)
     means = [stats[f]["mean"] for f in numeric_feature_names]
     stds = [stats[f]["std"] for f in numeric_feature_names]
 
-    X_scaled = []
-    for row in X:
-        scaled_row = [(row[j] - means[j]) / stds[j] for j in range(len(row))]
-        X_scaled.append(scaled_row)
+    X_scaled = normalization(X, means, stds)
 
     return X_scaled, y
 
 
-def main():
-    print("Loading data...")
-    X, y_labels = load_data()
+def train_all_houses(X, y_labels, train_func, **kwargs):
+    """
+    Train one-vs-rest classifiers for all houses using the given training function.
 
-    # Use Gryffindor as binary classification target
-    y = [1 if label == "Gryffindor" else 0 for label in y_labels]
+    Returns:
+        dict: {house_name: losses_list}
+    """
+    houses = sorted(set(y_labels))
+    results = {}
 
-    print(f"Training on {len(X)} samples with {len(X[0])} features")
-    print("Training with different methods...\n")
+    for house in houses:
+        # Create binary labels (1 for this house, 0 for others)
+        y_binary = [1 if label == house else 0 for label in y_labels]
 
-    # Train with each method (using comparable total iterations)
-    epochs = 100
+        # Train model
+        _, _, losses = train_func(X, y_binary, **kwargs)
+        results[house] = losses
 
-    print("Training Batch GD...")
-    _, _, losses_batch = train_batch_gd(X, y, learning_rate=0.5, epochs=epochs)
+    return results
 
-    print("Training SGD...")
-    _, _, losses_sgd = train_sgd(X, y, learning_rate=0.1, epochs=epochs)
 
-    print("Training Mini-Batch GD (batch_size=32)...")
-    _, _, losses_mini32 = train_mini_batch_gd(X, y, learning_rate=0.2, epochs=epochs, batch_size=32)
+def plot_technique(losses_dict, technique_name, epochs, save_path):
+    """
+    Create a plot showing loss curves for all houses for a single technique.
 
-    print("Training Mini-Batch GD (batch_size=64)...")
-    _, _, losses_mini64 = train_mini_batch_gd(X, y, learning_rate=0.3, epochs=epochs, batch_size=64)
+    Args:
+        losses_dict: Dictionary mapping house names to loss lists
+        technique_name: Name of the technique (for title)
+        epochs: Number of epochs
+        save_path: Path to save the plot
+    """
+    # House colors matching their official colors
+    colors = {
+        'Gryffindor': '#740001',
+        'Hufflepuff': '#FFD700',
+        'Ravenclaw': '#0E1A40',
+        'Slytherin': '#1A472A'
+    }
 
-    # Create visualization
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    plt.figure(figsize=(12, 7))
 
-    # Plot 1: Loss over epochs
-    ax1 = axes[0]
-    ax1.plot(losses_batch, label='Batch GD (lr=0.5)', linewidth=2)
-    ax1.plot(losses_sgd, label='SGD (lr=0.1)', linewidth=2, alpha=0.8)
-    ax1.plot(losses_mini32, label='Mini-Batch 32 (lr=0.2)', linewidth=2)
-    ax1.plot(losses_mini64, label='Mini-Batch 64 (lr=0.3)', linewidth=2)
-    ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Loss')
-    ax1.set_title('Training Loss Comparison')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-    ax1.set_xlim(0, epochs)
+    for house, losses in sorted(losses_dict.items()):
+        plt.plot(losses, label=house, color=colors.get(house, 'gray'),
+                linewidth=2.5, alpha=0.8)
 
-    # Plot 2: Zoomed view of convergence (last 50 epochs)
-    ax2 = axes[1]
-    start = max(0, epochs - 50)
-    ax2.plot(range(start, epochs), losses_batch[start:], label='Batch GD', linewidth=2)
-    ax2.plot(range(start, epochs), losses_sgd[start:], label='SGD', linewidth=2, alpha=0.8)
-    ax2.plot(range(start, epochs), losses_mini32[start:], label='Mini-Batch 32', linewidth=2)
-    ax2.plot(range(start, epochs), losses_mini64[start:], label='Mini-Batch 64', linewidth=2)
-    ax2.set_xlabel('Epoch')
-    ax2.set_ylabel('Loss')
-    ax2.set_title('Convergence (Last 50 Epochs)')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+    plt.xlabel('Epoch', fontsize=12)
+    plt.ylabel('Loss', fontsize=12)
+    plt.title(f'{technique_name}\nTraining Loss by House', fontsize=14, fontweight='bold')
+    plt.legend(loc='upper right', fontsize=11)
+    plt.grid(True, alpha=0.3)
+    plt.xlim(0, epochs - 1)
+
+    # Add min/max loss info
+    all_losses = [loss for losses in losses_dict.values() for loss in losses]
+    plt.ylim(min(all_losses) * 0.95, max(all_losses) * 1.05)
 
     plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    print(f"  Saved: {save_path}")
+    plt.close()
 
-    # Print final losses
-    print("\n" + "="*50)
-    print("Final Loss after {} epochs:".format(epochs))
-    print("="*50)
-    print(f"  Batch GD:       {losses_batch[-1]:.6f}")
-    print(f"  SGD:            {losses_sgd[-1]:.6f}")
-    print(f"  Mini-Batch 32:  {losses_mini32[-1]:.6f}")
-    print(f"  Mini-Batch 64:  {losses_mini64[-1]:.6f}")
 
-    plt.savefig('training_comparison.png', dpi=150, bbox_inches='tight')
-    print("\nPlot saved to training_comparison.png")
-    plt.show()
+def main():
+    """Main function."""
+    if len(sys.argv) < 2:
+        print("Usage: python compare_training.py <dataset_path>")
+        sys.exit(1)
+
+    data_file = sys.argv[1]
+
+    print("="*70)
+    print("TRAINING COMPARISON: All Houses with Different Techniques")
+    print("="*70)
+    print(f"\nLoading data from {data_file}...")
+    X, y_labels = load_data(data_file)
+
+    print(f"Training on {len(X)} samples with {len(X[0])} features")
+    print(f"Houses: {sorted(set(y_labels))}\n")
+
+    # Training parameters
+    epochs = 100
+    learning_rate_batch = 0.5
+    learning_rate_sgd = 0.1
+    learning_rate_minibatch = 0.2
+    batch_size = 32
+
+    # Train with each technique for all houses
+    print("-"*70)
+    print("Training with Batch Gradient Descent...")
+    print("-"*70)
+    losses_batch_all = train_all_houses(
+        X, y_labels, train_batch_gd,
+        learning_rate=learning_rate_batch,
+        epochs=epochs
+    )
+    print("  ✓ Batch GD complete")
+
+    print("\n" + "-"*70)
+    print("Training with Stochastic Gradient Descent...")
+    print("-"*70)
+    losses_sgd_all = train_all_houses(
+        X, y_labels, train_sgd,
+        learning_rate=learning_rate_sgd,
+        epochs=epochs
+    )
+    print("  ✓ SGD complete")
+
+    print("\n" + "-"*70)
+    print("Training with Mini-Batch Gradient Descent...")
+    print("-"*70)
+    losses_minibatch_all = train_all_houses(
+        X, y_labels, train_mini_batch_gd,
+        learning_rate=learning_rate_minibatch,
+        epochs=epochs,
+        batch_size=batch_size
+    )
+    print("  ✓ Mini-Batch GD complete")
+
+    # Create individual plots for each technique
+    print("\n" + "="*70)
+    print("GENERATING PLOTS")
+    print("="*70)
+
+    import os
+    os.makedirs('images', exist_ok=True)
+
+    plot_technique(
+        losses_batch_all,
+        f'Batch Gradient Descent (lr={learning_rate_batch})',
+        epochs,
+        'images/training_batch_gd.png'
+    )
+
+    plot_technique(
+        losses_sgd_all,
+        f'Stochastic Gradient Descent (lr={learning_rate_sgd})',
+        epochs,
+        'images/training_sgd.png'
+    )
+
+    plot_technique(
+        losses_minibatch_all,
+        f'Mini-Batch Gradient Descent (lr={learning_rate_minibatch}, batch_size={batch_size})',
+        epochs,
+        'images/training_minibatch_gd.png'
+    )
+
+    # Print final losses for each technique and house
+    print("\n" + "="*70)
+    print("FINAL LOSS SUMMARY (after {} epochs)".format(epochs))
+    print("="*70)
+
+    print("\n1. Batch Gradient Descent:")
+    for house in sorted(losses_batch_all.keys()):
+        print(f"   {house:12s}: {losses_batch_all[house][-1]:.6f}")
+
+    print("\n2. Stochastic Gradient Descent:")
+    for house in sorted(losses_sgd_all.keys()):
+        print(f"   {house:12s}: {losses_sgd_all[house][-1]:.6f}")
+
+    print("\n3. Mini-Batch Gradient Descent:")
+    for house in sorted(losses_minibatch_all.keys()):
+        print(f"   {house:12s}: {losses_minibatch_all[house][-1]:.6f}")
+
+    print("\n" + "="*70)
+    print("✓ All plots saved to images/ directory")
+    print("="*70)
 
 
 if __name__ == "__main__":

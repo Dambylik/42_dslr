@@ -1,5 +1,6 @@
 from utils import read_csv_file, parse_csv_data
 import matplotlib.pyplot as plt
+import sys
 
 
 def extract_course_by_house(rows, headers, course_name):
@@ -43,21 +44,14 @@ def plot_histogram(houses_data, course_name):
     plt.show()
 
 
-
 def main():
-    # Use default dataset path
-    file_path = "datasets/dataset_train.csv"
-    
+    if len(sys.argv) < 2:
+        print("Usage: python histogram.py <dataset_path>")
+        sys.exit(1)
+
+    file_path = sys.argv[1]
     lines = read_csv_file(file_path)
     headers, rows = parse_csv_data(lines)
-    
-    # Get all course names (skip non-course columns)
-    skip_columns = ["Index", "Hogwarts House", "First Name", "Last Name", "Birthday"]
-    courses = [h for h in headers if h not in skip_columns]
-    
-    # Extract data for each course by house
-    print("Course data by house:")
-    print("-" * 50)
     
     course_name = "Care of Magical Creatures"  # Most homogeneous distribution
     houses_data = extract_course_by_house(rows, headers, course_name)

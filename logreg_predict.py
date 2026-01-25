@@ -1,20 +1,11 @@
 import sys
-import json
-import math
-from utils import read_csv_file, parse_csv_data
-
-
-def sigmoid(z):
-    """Numerically stable sigmoid function"""
-    if z >= 0:
-        return 1 / (1 + math.exp(-z))
-    else:
-        exp_z = math.exp(z)
-        return exp_z / (1 + exp_z)
-
-
-def normalize(x, means, stds):
-    return [(x[i] - means[i]) / stds[i] for i in range(len(x))]
+from utils import (
+    read_csv_file,
+    parse_csv_data,
+    sigmoid,
+    normalize,
+    load_model
+)
 
 
 def predict_house(x, models):
@@ -41,13 +32,8 @@ def main():
     model_path = sys.argv[1]
     data_path = sys.argv[2]
 
-    with open(model_path, "r") as f:
-        model = json.load(f)
-
-    models = model["models"]
-    means = model["means"]
-    stds = model["stds"]
-    feature_names = model["features"]
+    # Load model
+    models, means, stds, feature_names = load_model(model_path)
 
     lines = read_csv_file(data_path)
     headers, rows = parse_csv_data(lines)
@@ -59,9 +45,14 @@ def main():
 
     for row in rows:
         x = []
-        for idx in feature_indices:
+        for i, idx in enumerate(feature_indices):
             value = row[idx]
-            x.append(float(value) if value != "" else 0.0)
+            # Use mean imputation for missing values instead of 0.0
+            # This way, after normalization, missing values become 0.0 (neutral)
+            if value != "":
+                x.append(float(value))
+            else:
+                x.append(means[i])  # Fill with mean value
 
         x_norm = normalize(x, means, stds)
         house = predict_house(x_norm, models)
