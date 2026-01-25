@@ -36,10 +36,7 @@ The goal is to recreate the Hogwarts Sorting Hat using machine learning. Given a
 ├── evaluate.py                 # Model evaluation with scikit-learn
 ├── logreg_train_sgd.py         # Stochastic Gradient Descent (bonus)
 ├── logreg_train_minibatch.py   # Mini-batch Gradient Descent (bonus)
-├── logreg_train_random_init.py # Random weight initialization (bonus)
 ├── compare_training.py         # Training methods comparison (bonus)
-├── analyze_errors.py           # Error analysis tool (bonus)
-├── optimize_hyperparameters.py # Hyperparameter optimization (bonus)
 ├── generate_images.py          # Generate all visualizations
 ├── utils.py                    # Common utilities (CSV, normalization, etc.)
 └── images/                     # Generated visualizations
