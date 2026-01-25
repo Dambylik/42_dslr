@@ -385,32 +385,6 @@ Generates:
 - Per-house accuracy breakdown
 - Detailed classification report (precision, recall, F1-score)
 
-### Error Analysis
-
-Analyze misclassified samples to identify patterns:
-
-```bash
-python analyze_errors.py
-```
-
-Provides insights into:
-- Which houses are confused with each other
-- Missing feature patterns in errors
-- Confidence levels for correct vs. incorrect predictions
-
-### Hyperparameter Optimization
-
-Find optimal learning rate and epochs:
-
-```bash
-python optimize_hyperparameters.py
-```
-
-Tests multiple combinations of:
-- Learning rates: [0.01, 0.05, 0.1, 0.15]
-- Epochs: [1000, 2000, 3000, 5000, 7000, 10000, 15000]
-
-Saves best model as `model_optimized.json`.
 
 ### Extended Statistics
 
@@ -535,9 +509,3 @@ pip install pandas matplotlib seaborn scikit-learn
 ```
 
 **Note**: scikit-learn is only used for `evaluate.py` (metrics calculation and visualization). The core logistic regression implementation is built from scratch without ML libraries.
-
----
-
-## Author
-
-42 School Project - Data Science Logistic Regression
