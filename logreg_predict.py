@@ -2,8 +2,8 @@ import sys
 from utils import (
     read_csv_file,
     parse_csv_data,
-    sigmoid,
-    normalize,
+    predict,
+    normalization,
     load_model
 )
 
@@ -16,8 +16,7 @@ def predict_house(x, models):
     for house, params in models.items():
         w = params["weights"]
         b = params["bias"]
-        z = sum(w[i] * x[i] for i in range(len(w))) + b
-        prob = sigmoid(z)
+        prob = predict(x, w, b)
         if prob > best_prob:
             best_prob = prob
             best_house = house
@@ -54,7 +53,7 @@ def main():
             else:
                 x.append(means[i])  # Fill with mean value
 
-        x_norm = normalize(x, means, stds)
+        x_norm = normalization(x, means, stds)
         house = predict_house(x_norm, models)
         predictions.append(house)
 

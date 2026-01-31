@@ -9,7 +9,7 @@ import random
 # Math utilities
 # =====================
 def sigmoid(z):
-    """Numerically stable sigmoid function: σ(z) = 1 / (1 + e⁻ᶻ)"""
+    """Sigmoid function"""
     if z >= 0:
         return 1 / (1 + math.exp(-z))
     else:
@@ -17,15 +17,27 @@ def sigmoid(z):
         return exp_z / (1 + exp_z)
 
 
-def log_loss(y, y_hat, eps=1e-15):
+def predict(features, weights, bias):
+    """Compute prediction.
+    Hypothesis = sigmoid function of linear combination of features and weights"""
+    logit = sum(weights[j] * features[j] for j in range(len(weights))) + bias
+    return sigmoid(logit)
+
+
+def compute_log_loss(features_matrix, labels, weights, bias):
     """
-    Binary cross-entropy loss.
-    y: true label (0 or 1)
-    y_hat: predicted probability
-    eps: small value to avoid log(0)
+    Compute the log loss (binary cross-entropy) over all students.
+    Cost function: 
+    J(θ) =  -1/num_students x Σ [real_answer x log(prediction) + (1-real_answer) x log(1-prediction)]
+    Lower = better. Perfect model -> 0.0
     """
-    y_hat = max(eps, min(1 - eps, y_hat))
-    return -(y * math.log(y_hat) + (1 - y) * math.log(1 - y_hat))
+    num_students = len(features_matrix)
+    total_loss = 0.0
+    for student in range(num_students):
+        prediction = predict(features_matrix[student], weights, bias)
+        prediction = max(min(prediction, 1 - 1e-15), 1e-15)
+        total_loss += labels[student] * math.log(prediction) + (1 - labels[student]) * math.log(1 - prediction)
+    return -total_loss / num_students
 
 
 # =====================
@@ -39,11 +51,9 @@ def read_csv_file(file_path):
     except FileNotFoundError:
         print(f"Error: The file '{file_path}' was not found.")
         sys.exit(1)
-
     if len(lines) == 0:
         print("The dataset is empty.")
         sys.exit(1)
-
     return lines
 
 
@@ -60,12 +70,11 @@ def parse_csv_data(lines):
             continue
         row = line.split(",")
         rows.append(row)
-
     return headers, rows
 
 
 def load_data(path):
-    """Load data using pandas (legacy function)."""
+    """Load data from CSV file into DataFrame and extract features."""
     print(f"path: {path}")
     try:
         df = pd.read_csv(path, index_col = 0)
@@ -83,31 +92,21 @@ def load_data(path):
 # =====================
 def normalization(X, means, stds):
     """
-    Normalize dataset using z-score normalization: x_scaled = (x - μ) / σ
-    X: list of feature vectors (2D list)
-    means: list of mean values for each feature
-    stds: list of standard deviation values for each feature
-    Returns: normalized dataset (2D list)
-    """
-    X_scaled = []
-    for row in X:
-        scaled_row = []
-        for j in range(len(row)):
-            scaled_value = (row[j] - means[j]) / stds[j]
-            scaled_row.append(scaled_value)
-        X_scaled.append(scaled_row)
-    return X_scaled
+    Normalize using z-score normalization.
+    
+    Args:
+        X: single feature vector (list) or list of feature vectors (2D list)
+        means: list of mean values for each feature
+        stds: list of standard deviation values for each feature
 
-
-def normalize(x, means, stds):
+    Returns:
+        normalized vector (list) or normalized dataset (2D list)
     """
-    Normalize a single feature vector using z-score normalization.
-    x: single feature vector (list)
-    means: list of mean values for each feature
-    stds: list of standard deviation values for each feature
-    Returns: normalized feature vector (list)
-    """
-    return [(x[i] - means[i]) / stds[i] for i in range(len(x))]
+    if len(X) == 0:
+        return X
+    if isinstance(X[0], list):
+        return [[(row[j] - means[j]) / stds[j] for j in range(len(row))] for row in X]
+    return [(X[i] - means[i]) / stds[i] for i in range(len(X))]
 
 
 # =====================
@@ -131,6 +130,33 @@ def shuffle_data(X, y):
 
 
 # =====================
+# Dataset building
+# =====================
+def build_dataset(headers, rows, feature_names, label_col='Hogwarts House'):
+    """
+    Build X (feature matrix) and y (labels) from raw CSV rows.
+    Skips rows with missing values in numeric features.
+    Returns X (list of feature vectors), y (list of labels).
+    """
+    X = []
+    y = []
+    for row in rows:
+        try:
+            features = [
+                float(row[headers.index(f)]) if row[headers.index(f)].strip() != '' else float('nan')
+                for f in feature_names
+            ]
+            if any(str(x) == 'nan' for x in features):
+                continue
+            label = row[headers.index(label_col)]
+        except Exception:
+            continue
+        X.append(features)
+        y.append(label)
+    return X, y
+
+
+# =====================
 # Model persistence
 # =====================
 def save_model(path, models, means, stds, feature_names):
@@ -149,7 +175,7 @@ def save_model(path, models, means, stds, feature_names):
         "features": feature_names
     }
     with open(path, "w") as f:
-        json.dump(payload, f)
+        json.dump(payload, f, indent=4)
 
 
 def load_model(path):

@@ -3,75 +3,82 @@ from describe import calculate_statistics, extract_numerical_columns
 from utils import (
     read_csv_file,
     parse_csv_data,
-    sigmoid,
+    predict,
     normalization,
     save_model,
-    shuffle_data
+    shuffle_data,
+    compute_log_loss,
+    build_dataset
 )
-
-
-def sgd_step(x, y_true, w, b, learning_rate):
-    """
-    Perform one stochastic gradient descent step (single sample update).
-    x: single feature vector (list of floats)
-    y_true: single label (0 or 1)
-    w: list of weights
-    b: bias (float)
-    learning_rate: step size
-    """
-    n = len(w)
-    # linear score
-    z = sum(w[j] * x[j] for j in range(n)) + b
-    # prediction
-    y_hat = sigmoid(z)
-    # error
-    error = y_hat - y_true
-    # update parameters immediately (no accumulation)
-    for j in range(n):
-        w[j] -= learning_rate * error * x[j]
-    b -= learning_rate * error
-    return w, b
-
 
 # =====================
 # Training
 # =====================
-def train_sgd(X, y, learning_rate, epochs):
+
+def sgd_step(sample_features, sample_label, weights, bias, learning_rate):
+    """
+    Goal: Minimize the loss function by adjusting weights
+
+    Algorithm (SGD - single sample update):
+    1. Start with random weights and bias
+    2. For each sample:
+    - Compute prediction -> sigmoid(logit)
+    - Compute error -> prediction - actual
+    - Update weights and bias immediately (no accumulation)
+    """
+    num_features = len(weights)
+    prediction = predict(sample_features, weights, bias)
+    error = prediction - sample_label
+    for feature in range(num_features):
+        weights[feature] -= learning_rate * error * sample_features[feature]
+    bias -= learning_rate * error
+    return weights, bias
+
+
+def train_sgd(features_matrix, labels, learning_rate, epochs):
     """
     Train a binary logistic regression model using stochastic gradient descent.
     Updates weights after each sample, shuffles data each epoch.
     Returns trained weights and bias.
     """
-    n_features = len(X[0])
-    w = [0.0] * n_features
-    b = 0.0
-    # Training loop
-    for _ in range(epochs):
-        # Shuffle data each epoch for better convergence
-        X_shuffled, y_shuffled = shuffle_data(X, y)
-        # Update after each sample
-        for i in range(len(X_shuffled)):
-            w, b = sgd_step(X_shuffled[i], y_shuffled[i], w, b, learning_rate)
-    return w, b
+    num_features = len(features_matrix[0])
+    weights = [0.0] * num_features
+    bias = 0.0
+    for epoch in range(epochs):
+        shuffled_features, shuffled_labels = shuffle_data(features_matrix, labels)
+        for student in range(len(shuffled_features)):
+            weights, bias = sgd_step(shuffled_features[student], shuffled_labels[student], weights, bias, learning_rate)
+        if epoch % 20 == 0 or epoch == epochs - 1:
+            loss = compute_log_loss(features_matrix, labels, weights, bias)
+            print(f"     Epoch {epoch:>4}/{epochs} - Log Loss: {loss:.6f}")
+    return weights, bias
 
 
 def train_one_vs_rest(X, houses, house_names, learning_rate=0.1, epochs=100):
     """
-    Train one-vs-rest logistic regression using SGD.
-    houses: list of house labels for each student
-    house_names: list of unique house names
+    Train one-vs-rest 4 separate binary classifiers using SGD:
+   - Model 1: Gryffindor vs. Others
+   - Model 2: Slytherin vs. Others
+   - Model 3: Hufflepuff vs. Others
+   - Model 4: Ravenclaw vs. Others
     """
     models = {}
+    print(f"🏰 Houses: {house_names}\n")
     for house in house_names:
-        # Build binary labels
         y_binary = [1 if h == house else 0 for h in houses]
+        n_positive = sum(y_binary)
+        n_negative = len(y_binary) - n_positive
+        print("                           ")
+        print(f"   {house}: {n_positive} students")
+        print(f"   Others: {n_negative} students")
+        print("---------------------------")
         w, b = train_sgd(X, y_binary, learning_rate, epochs)
         models[house] = (w, b)
     return models
 
 
 # =====================
-# Main pipeline
+# Main function
 # =====================
 def main():
     if len(sys.argv) != 2:
@@ -79,40 +86,24 @@ def main():
         sys.exit(1)
 
     dataset_path = sys.argv[1]
-
-    # Load data
     lines = read_csv_file(dataset_path)
     headers, rows = parse_csv_data(lines)
-
     label_col = "Hogwarts House"
-
-    # Extract numeric columns
     numerical_columns = extract_numerical_columns(headers, rows)
     numeric_feature_names = list(numerical_columns.keys())
 
-    # Build X (feature vectors) and y (labels)
-    X = []
-    y = []
-    for row in rows:
-        try:
-            features = [float(row[headers.index(f)]) if row[headers.index(f)].strip() != '' else float('nan') for f in numeric_feature_names]
-            if any([str(x) == 'nan' for x in features]):
-                continue
-            label = row[headers.index(label_col)]
-        except Exception:
-            continue
-        X.append(features)
-        y.append(label)
+    X, y = build_dataset(headers, rows, numeric_feature_names, label_col)
+    print(f"✅ Dataset built successfully!")
+    print(f"   Shape of X: ({len(X)}, {len(X[0]) if X else 0}) (students x features)")
+    print(f"   Shape of y: ({len(y)},) (class labels, one per student)")
+    print(f"   Students removed due to missing values: {len(rows) - len(X)}")
 
-    # Compute statistics
     stats = calculate_statistics(numerical_columns)
     means = [stats[f]["mean"] for f in numeric_feature_names]
     stds = [stats[f]["std"] for f in numeric_feature_names]
-
-    # Normalize
     X_scaled = normalization(X, means, stds)
+    print("✅ Data normalized!")
 
-    # Train one-vs-rest using SGD
     house_names = sorted(set(y))
     raw_models = train_one_vs_rest(
         X_scaled,
@@ -122,13 +113,10 @@ def main():
         epochs=100
     )
 
-    # Convert to dict format
     models = {}
     for house, params in raw_models.items():
         w, b = params
         models[house] = {"weights": w, "bias": b}
-
-    # Save model
     save_model("model.json", models, means, stds, numeric_feature_names)
     print("SGD Training complete. Model saved to model.json")
 

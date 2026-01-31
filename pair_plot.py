@@ -18,14 +18,10 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python pair_plot.py dataset.csv")
         sys.exit(1)
-
     path = sys.argv[1]
     df, _ = load_data(path)
-
-    # Drop non-numerical columns
     drop_cols = ["First Name", "Last Name", "Birthday"]
     df = df.drop(columns=drop_cols, errors='ignore')
-
     plot_pair(df)
 
 
