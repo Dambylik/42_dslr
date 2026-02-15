@@ -87,6 +87,21 @@ def load_data(path):
     return df, features
 
 
+def drop_columns(headers, rows, columns_to_drop):
+    drop_indices = [
+        headers.index(col)
+        for col in columns_to_drop
+        if col in headers
+    ]
+    drop_indices.sort(reverse=True)
+    for idx in drop_indices:
+        headers.pop(idx)
+    for row in rows:
+        for idx in drop_indices:
+            row.pop(idx)
+    return headers, rows
+
+
 # =====================
 # Normalization utilities
 # =====================

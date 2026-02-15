@@ -8,7 +8,8 @@ from utils import (
     save_model,
     shuffle_data,
     compute_log_loss,
-    build_dataset
+    build_dataset,
+    drop_columns
 )
 
 # =====================
@@ -108,6 +109,7 @@ def main():
     dataset_path = sys.argv[1]
     lines = read_csv_file(dataset_path)
     headers, rows = parse_csv_data(lines)
+    headers, rows = drop_columns(headers, rows, ['Arithmancy', 'Potions', 'Care of Magical Creatures'])
     label_col = "Hogwarts House"
     numerical_columns = extract_numerical_columns(headers, rows)
     numeric_feature_names = list(numerical_columns.keys())

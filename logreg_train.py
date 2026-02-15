@@ -7,7 +7,8 @@ from utils import (
     normalization,
     save_model,
     compute_log_loss,
-    build_dataset
+    build_dataset,
+    drop_columns
 )
 
 # =====================
@@ -64,7 +65,7 @@ def train_logistic_regression(features_matrix, labels, learning_rate, epochs):
     return weights, bias
 
 
-def train_one_vs_rest(X, houses, house_names, learning_rate = 0.1, epochs = 1000):
+def train_one_vs_rest(X, houses, house_names, learning_rate = 0.01, epochs = 500):
     """
     Train one-vs-rest 4 separate binary classifiers:
    - Model 1: Gryffindor vs. Others
@@ -98,10 +99,11 @@ def main():
     dataset_path = sys.argv[1]
     lines = read_csv_file(dataset_path)
     headers, rows = parse_csv_data(lines)
+    headers, rows = drop_columns(headers, rows, ['Arithmancy', 'Potions', 'Care of Magical Creatures'])
     label_col = "Hogwarts House"
     numerical_columns = extract_numerical_columns(headers, rows)
     numeric_feature_names = list(numerical_columns.keys())
-    
+
     X, y = build_dataset(headers, rows, numeric_feature_names, label_col)
     print(f"✅ Dataset built successfully!")
     print(f"   Shape of X: ({len(X)}, {len(X[0]) if X else 0}) (students x features)")

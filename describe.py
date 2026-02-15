@@ -1,19 +1,50 @@
 import sys
 import math
 from utils import read_csv_file, parse_csv_data
+import pandas as pd
 
+def extract_numerical_columns_NAN(headers, rows):
+    """Extract numerical data from rows, organized by column name."""
+    numerical_columns = {}
+    num_columns = len(headers)
+
+    skip_columns = ["Index", "Hogwarts House", "First Name", "Last Name", "Birthday", "Best Hand"]
+
+    for col_index in range(num_columns):
+        col_name = headers[col_index]
+        if col_name in skip_columns:
+            continue
+        values = []
+        for row in rows:
+            if col_index >= len(row):
+                values.append(None)
+                continue
+            cell = row[col_index].strip()
+            if cell == "":
+                values.append(None)
+                continue
+            try:
+                value = float(cell)
+                values.append(value)
+            except ValueError:
+                values.append(None)
+                continue
+        if len(values) > 0:
+            numerical_columns[col_name] = values
+
+    return numerical_columns
 
 def extract_numerical_columns(headers, rows):
     """Extract numerical data from rows, organized by column name."""
     numerical_columns = {}
     num_columns = len(headers)
-    
-    skip_columns = ["Index", "Hogwarts House", "First Name", "Last Name", "Birthday"]
-    
+
+    skip_columns = ["Index", "Hogwarts House", "First Name", "Last Name", "Birthday", "Best Hand"]
+
     for col_index in range(num_columns):
         col_name = headers[col_index]
         if col_name in skip_columns:
-            continue        
+            continue
         values = []
         for row in rows:
             if col_index >= len(row):
@@ -25,9 +56,10 @@ def extract_numerical_columns(headers, rows):
                 value = float(cell)
                 values.append(value)
             except ValueError:
-                continue       
+                continue
         if len(values) > 0:
             numerical_columns[col_name] = values
+
     return numerical_columns
 
 
@@ -38,10 +70,13 @@ def calculate_count(values):
 
 def calculate_mean(values):
     """Calculate mean of values."""
-    total = 0.0
-    for v in values:
-        total += v
-    return total / len(values)
+    valid_numbers = [float(x) for x in values if str(x).lower() != 'nan' and x != '']
+    if not valid_numbers:
+        return 0.0
+    # total = 0.0
+    # for v in values:
+    #     total += v
+    return sum(valid_numbers) / len(values)
 
 
 def calculate_min(values):
@@ -62,7 +97,7 @@ def calculate_std(values, mean):
     for v in values:
         diff = v - mean
         squared_diff_sum += diff * diff
-    variance = squared_diff_sum / len(values)
+    variance = squared_diff_sum / (len(values) - 1)
     return math.sqrt(variance)
 
 
@@ -105,6 +140,19 @@ def calculate_iqr(q25, q75):
     return q75 - q25
 
 
+def calculate_median(values):
+    """Calculate median value"""
+    sorted_val = sorted(values)
+    if len(sorted_val) == 0:
+        return None
+    mid_index = len(sorted_val) // 2
+    if len(sorted_val) % 2 == 0:
+        median = (sorted_val[mid_index] + sorted_val[mid_index - 1]) / 2
+    else:
+        median = sorted_val[mid_index]
+    return median
+
+
 def calculate_skewness(values, mean, std):
     """
     Calculate skewness (measure of asymmetry).
@@ -143,8 +191,13 @@ def calculate_statistics(numerical_columns):
         if not values:
             continue
 
-        sorted_values = sorted(values)
-        count = calculate_count(sorted(sorted_values))
+        #sorted_values = sorted(values)
+        valid_values = [v for v in values if v is not None]
+        if not valid_values:
+            continue
+        sorted_values = sorted(valid_values)
+        # count = calculate_count(sorted(sorted_values))
+        count = calculate_count(sorted_values)
         mean = calculate_mean(sorted_values)
         std = calculate_std(sorted_values, mean)
         std_for_calc = std if std != 0.0 else 1.0
@@ -157,6 +210,7 @@ def calculate_statistics(numerical_columns):
         variance = calculate_variance(sorted_values, mean)
         range_val = calculate_range(min_value, max_value)
         iqr = calculate_iqr(q25, q75)
+        median = calculate_median(sorted_values)
         skewness = calculate_skewness(sorted_values, mean, std_for_calc)
         kurtosis = calculate_kurtosis(sorted_values, mean, std_for_calc)
 
@@ -174,6 +228,7 @@ def calculate_statistics(numerical_columns):
             "75%": q75,
             "max": max_value,
             "range": range_val,
+            "median": median,
             "iqr": iqr,
             "skew": skewness,
             "kurt": kurtosis
@@ -187,8 +242,8 @@ def print_statistics(stats, output_file=None, file_path=None, headers=None, rows
         return
 
     columns = list(stats.keys())
-    stat_labels = ["Count", "Mean", "Std", "Var", "Min", "25%", "50%", "75%", "Max", "Range", "IQR", "Skew", "Kurt"]
-    stat_keys   = ["count", "mean", "std", "var", "min", "25%", "50%", "75%", "max", "range", "iqr", "skew", "kurt"]
+    stat_labels = ["Count", "Mean", "Std", "Var", "Min", "25%", "50%", "75%", "Max", "Range", "IQR", "Median", "Skew", "Kurt"]
+    stat_keys   = ["count", "mean", "std", "var", "min", "25%", "50%", "75%", "max", "range", "iqr", "median", "skew", "kurt"]
     stat_name_width = 12
     col_width = 18
     lines = []
@@ -292,6 +347,14 @@ def main():
     numerical_columns = extract_numerical_columns(headers, rows)
     stats = calculate_statistics(numerical_columns)
     print_statistics(stats, output_file="describe_output.txt", file_path=file_path, headers=headers, rows=rows)
+    #test 
+    # df = pd.read_csv(file_path)
+    # df = df.drop(columns=['Index'])
+    # desc = df.describe()
+    # desc.loc['skew'] = df.skew(numeric_only=True)
+    # desc.loc['kurt'] = df.kurt(numeric_only=True)
+    # print(desc)
+
 
 
 if __name__ == "__main__":

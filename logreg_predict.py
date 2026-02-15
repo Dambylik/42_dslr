@@ -4,7 +4,8 @@ from utils import (
     parse_csv_data,
     predict,
     normalization,
-    load_model
+    load_model,
+    drop_columns
 )
 
 
@@ -30,29 +31,21 @@ def main():
 
     model_path = sys.argv[1]
     data_path = sys.argv[2]
-
-    # Load model
     models, means, stds, feature_names = load_model(model_path)
-
     lines = read_csv_file(data_path)
     headers, rows = parse_csv_data(lines)
+    headers, rows = drop_columns(headers, rows, ['Arithmancy', 'Potions', 'Care of Magical Creatures'])
 
-    # Map feature indices
     feature_indices = [headers.index(f) for f in feature_names]
-
     predictions = []
-
     for row in rows:
         x = []
         for i, idx in enumerate(feature_indices):
             value = row[idx]
-            # Use mean imputation for missing values instead of 0.0
-            # This way, after normalization, missing values become 0.0 (neutral)
             if value != "":
                 x.append(float(value))
             else:
-                x.append(means[i])  # Fill with mean value
-
+                x.append(means[i])
         x_norm = normalization(x, means, stds)
         house = predict_house(x_norm, models)
         predictions.append(house)
